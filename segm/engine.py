@@ -6,6 +6,7 @@ from segm.metrics import gather_data, compute_metrics
 from segm.model import utils
 from segm.data.utils import IGNORE_LABEL
 import segm.utils.torch as ptu
+import wandb
 
 
 def train_one_epoch(
@@ -57,6 +58,7 @@ def train_one_epoch(
             loss=loss.item(),
             learning_rate=optimizer.param_groups[0]["lr"],
         )
+        wandb.log({"train loss": loss_value, 'learning_rate': optimizer.param_groups[0]["lr"]})
 
     return logger
 
@@ -112,5 +114,6 @@ def evaluate(
 
     for k, v in scores.items():
         logger.update(**{f"{k}": v, "n": 1})
+        wandb.log({f"{k}": v})
 
     return logger

@@ -23,6 +23,8 @@ from contextlib import suppress
 from segm.utils.distributed import sync_model
 from segm.engine import train_one_epoch, evaluate
 import algm
+import wandb
+import accelerate
 
 
 
@@ -279,6 +281,15 @@ def main(
     print(f"Val dataset length: {len(val_loader.dataset)}")
     print(f"Encoder parameters: {num_params(model_without_ddp.encoder)}")
     print(f"Decoder parameters: {num_params(model_without_ddp.decoder)}")
+    wandb.init(project="segm", entity="segm", config={
+        'dataset':dataset,
+        'im_size':im_size,
+        'crop_size':crop_size,
+        'window_size':window_size,
+        'window_stride':window_stride,
+        'backbone':backbone,
+        'decoder':decoder,
+    })
 
     best_checkpoint = 0 
     for epoch in range(start_epoch, num_epochs):
@@ -305,6 +316,7 @@ def main(
                 snapshot["loss_scaler"] = loss_scaler.state_dict()
             snapshot["epoch"] = epoch
             torch.save(snapshot, checkpoint_path)
+
 
         # evaluate
         eval_epoch = epoch % eval_freq == 0 or epoch == num_epochs - 1
