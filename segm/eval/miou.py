@@ -112,8 +112,10 @@ def eval_dataset(
     ims = {}
     seg_pred_maps = {}
     idx = 0
+
     for batch in logger.log_every(db, print_freq, header):
         colors = batch["colors"]
+        
         filename, im, seg_pred = process_batch(
             model, batch, window_size, window_stride, window_batch_size,
         )

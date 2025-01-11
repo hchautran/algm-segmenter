@@ -101,8 +101,7 @@ def compute_throughput(model,validation_loader,device ,batch_size, resolution):
     torch.cuda.empty_cache()
     if not isinstance(device, torch.device):
         device = torch.device(device)
-    warmup_iters = 50
-   
+    warmup_iters = 50   
     timing = []
     i = 0 
     
@@ -138,20 +137,22 @@ def compute_throughput(model,validation_loader,device ,batch_size, resolution):
 @click.option("--threshold", default=0.88, type=float)
 
 
-def main(model_dir,
+def main(
+    model_dir,
     dataset,
     batch_size,
     patch_type,
     selected_layers,
     merging_window_size,
-    threshold,):
+    threshold,
+):
 
     device = 'cuda:0'
     
     batch_size = batch_size 
-    model_path_list = glob.glob(model_dir + '/checkpoint.pth')
+    model_path_list = glob.glob(model_dir + '*/checkpoint.pth')
     root_dir = os.getenv('DATASET')
-    dataset_path, dataset_txt_path = get_dataset_validaion_path(dataset,root_dir)
+    dataset_path, dataset_txt_path = get_dataset_validaion_path(dataset, root_dir)
     
     for model_path in model_path_list:
         model, variant = load_model(model_path)

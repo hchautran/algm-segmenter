@@ -59,6 +59,7 @@ def make_visualization(
     vis_img = 0
 
     for i in range(num_groups):
+    
         mask = (vis == i).float().view(1, 1, ph, pw)
         mask = F.interpolate(mask, size=(h, w), mode="nearest")
         mask = mask.view(h, w, 1).numpy()

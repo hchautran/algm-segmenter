@@ -9,7 +9,13 @@
 # --patch-type pure: Uses the standard patch processing without any modifications.
 
 # single-scale baseline + ALGM evaluation:
-python -m segm.eval.miou runs/vit_small_layers_1_5_T_0.88/checkpoint.pth \
+python -m segm.eval.miou runs/vit_ti_16/checkpoint.pth \
+          ade20k \
+          --singlescale \
+          --patch-type pure 
+
+
+python -m segm.eval.miou runs/vit_ti_16/checkpoint.pth \
           ade20k \
           --singlescale \
           --patch-type algm \

@@ -34,7 +34,7 @@ warnings.filterwarnings("ignore")
 @torch.no_grad()
 
 
-def get_dataset_validaion_path(dataset_name, root_dir):
+def get_dataset_validation_path(dataset_name, root_dir):
     dataset_path_txt = None
     if dataset_name == 'ade20k':
         dataset_path = root_dir + '/ade20k/ADEChallengeData2016/images/validation/'
@@ -135,10 +135,11 @@ def main(model_dir,
     device = 'cuda:0'
     
     batch_size = batch_size 
+    
     model_path_list = glob.glob(model_dir + '/checkpoint.pth')
     root_dir = os.getenv('DATASET')
 
-    dataset_path, dataset_txt_path = get_dataset_validaion_path(dataset, root_dir)
+    dataset_path, dataset_txt_path = get_dataset_validation_path(dataset, root_dir)
     
     for model_path in model_path_list:
         model, variant = load_model(model_path)
@@ -154,7 +155,6 @@ def main(model_dir,
         model.eval()
         model.to(device)
     
-
     validaion_loader = dataset_prepare(dataset_path, dataset_txt_path, stats, batch_size, input_size)
     GFlops = compute_flops_per_image(model, validaion_loader,device, batch_size, input_size)
     print('GFlops:', GFlops, flush=True)

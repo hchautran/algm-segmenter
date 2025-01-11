@@ -21,6 +21,7 @@ def conditional_pooling(
     with torch.no_grad():
         
         ws_h, ws_w = int(window_size[0]), int(window_size[1])
+        breakpoint()
         stride_h, stride_w = ws_h, ws_w
         num_token_window = stride_h * stride_w
         
