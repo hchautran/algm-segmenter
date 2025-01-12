@@ -105,9 +105,10 @@ class VisionTransformer(nn.Module):
     def load_pretrained(self, checkpoint_path, prefix=""):
         _load_weights(self, checkpoint_path, prefix)
 
-    def forward(self, im, return_features=False):
+    def forward(self, im, return_features=False, return_hidden_states=False):
         B, _, H, W = im.shape
         PS = self.patch_size
+        hidden_states = []
 
         x = self.patch_embed(im)
         cls_tokens = self.cls_token.expand(B, -1, -1)
@@ -130,13 +131,18 @@ class VisionTransformer(nn.Module):
         x = self.dropout(x)
 
         for  blk in self.blocks:
+            if return_hidden_states:
+                hidden_states.append(x)
             x = blk(x)
             
             
         x = self.norm(x)
       
         if return_features:
+            if return_hidden_states:
+                return x, hidden_states
             return x
+        
 
         if self.distilled:
             x, x_dist = x[:, 0], x[:, 1]
@@ -146,6 +152,8 @@ class VisionTransformer(nn.Module):
         else:
             x = x[:, 0]
             x = self.head(x)
+        if return_hidden_states:
+            return x, hidden_states
         return x
 
     def get_attention_map(self, im, layer_id):
