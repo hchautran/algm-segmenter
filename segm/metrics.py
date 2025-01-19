@@ -90,7 +90,6 @@ def compute_metrics(
     tmp_dir=None,
     distributed=False,
 ):
-    breakpoint()
     ret_metrics_mean = torch.zeros(3, dtype=float, device=ptu.device)
     if ptu.dist_rank == 0:
         list_seg_pred = []

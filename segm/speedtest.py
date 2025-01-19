@@ -111,10 +111,12 @@ def compute_throughput(model,validation_loader,device ,batch_size, resolution):
         for image in tqdm(validation_loader, position=0, leave=False):
             image = image.to(device)
             image = image.repeat(32, 1, 1, 1)
+            i = i+1 
             if i != warmup_iters:
-                i = i+1 
                 model(image)
                 continue
+            if i >= 100:
+                break 
             if i == warmup_iters:
                 torch.cuda.synchronize()
             start = time.time()
@@ -164,6 +166,10 @@ def main(
             algm.patch.algm_segmenter_patch(model,selected_layers,trace_source=True)
             model.encoder.window_size = merging_window_size
             model.encoder.threshold = threshold     
+        elif patch_type == 'pitome':
+            algm.patch.pitome_segmenter_patch(model, [1], trace_source=True, num_merge_step=10)
+            model.encoder.margin = threshold 
+        
 
         model.eval()
         model.to(device)

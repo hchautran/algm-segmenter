@@ -235,9 +235,13 @@ def main(
     model, variant = load_model(model_path)
     
     if patch_type == "algm":
-        algm.patch.algm_segmenter_patch(model,selected_layers,trace_source=True)
+        algm.patch.algm_segmenter_patch(model, selected_layers,trace_source=True)
         model.encoder.window_size = merging_window_size
         model.encoder.threshold = threshold
+    elif patch_type == 'pitome':
+        algm.patch.pitome_segmenter_patch(model, [1,2], trace_source=True, num_merge_step=3)
+        model.encoder.margin = threshold 
+        
 
 
     patch_size = model.patch_size

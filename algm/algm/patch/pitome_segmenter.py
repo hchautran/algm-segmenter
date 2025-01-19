@@ -7,6 +7,7 @@ from segm.model.blocks import Block, Attention
 from segm.model.segmenter import Segmenter 
 from segm.model.vit import VisionTransformer
 from algm.utils import parse_r
+from algm.local_merge import conditional_pooling, merge_source, merge_wavg
 
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 # All rights reserved.
@@ -161,27 +162,33 @@ def pitome_bsm(
 def pitome_vision(
     metric: torch.Tensor, 
     ratio=1.0,
-    margin:torch.Tensor=0.5,
+    margin:torch.Tensor=0.9,
     class_token: bool = False,
+    sigma=0.0025,
     r=None,
 ):
     if r == 0:
         return do_nothing, r
-    else:
-        with torch.no_grad():
-            if class_token:
-                metric=metric[:,1:,:]
-            metric = F.normalize(metric, p=2, dim=-1) 
-            print('metric', metric.size(1))
-            sim = metric@metric.transpose(-1,-2) - torch.eye(metric.size(1), device=metric.device)[None, ...]
-            energy_score = F.relu(sim - margin).mean(dim=-1)
-            r = (energy_score > 0).int().sum(-1).item()
-            r = min(r, metric.size(1)//2)
-            if r == 0:
-                return do_nothing, r
-            indices =  torch.argsort(energy_score, descending=True)
 
-        return pitome_bsm(metric=metric, class_token=class_token, indices=indices, scores=sim, r=r), r 
+    with torch.no_grad():
+        if class_token:
+            metric=metric[:,1:,:]
+        metric = F.normalize(metric, p=2, dim=-1) 
+        # print('metric', metric.size(1))
+        sim = metric@metric.transpose(-1,-2) - torch.eye(metric.size(1), device=metric.device)[None, ...]
+        # energy_score = ((torch.exp(-(((1 - sim)/sigma)**2 * 0.5)))*  1/(sigma*torch.sqrt(torch.tensor(2*torch.pi)))).max(dim=-1).values
+        energy_score = ((torch.exp(-(((1 - sim)/sigma)**2 * 0.5)))*  1/(sigma*torch.sqrt(torch.tensor(2*torch.pi)))).mean(dim=-1)
+        # print('energy_score', energy_score)
+        threshold = ((torch.exp(-(((1 - torch.tensor([margin]).to(metric.device))/sigma)**2 * 0.5)))*  1/(sigma*torch.sqrt(torch.tensor(2*torch.pi))))
+        # print('threshold', threshold)
+        r = min((energy_score > threshold).int().sum(-1).min(-1).values.item(), metric.size(1)//2)
+        # print('r', r)
+        if r == 0:
+            return do_nothing, r
+        indices =  torch.argsort(energy_score, descending=True)
+        
+
+    return pitome(metric=metric, class_token=class_token, indices=indices, scores=sim, r=r), r 
 
 
 
@@ -296,11 +303,23 @@ class TurboBlock(Block):
         r = None
            
         if self._turbo_info["source"] is None: # if layer_idx == 1:
-            for _ in range(self._turbo_info["num_merge_step"]):
+            merge  = conditional_pooling(
+                x,
+                0.95, 
+                self._turbo_info["window_size"],
+            )
+            if self._turbo_info["trace_source"]:
+                    self._turbo_info["source"] = merge_source(
+                        merge, x, self._turbo_info["source"]
+                    )
+            x, self._turbo_info["size"] = merge_wavg(merge, x, self._turbo_info["size"])
+        else:
+            for i in range(self._turbo_info["num_merge_step"]):
                 merge, r  = pitome_vision(
                     metric=x,
-                    margin=self._turbo_info["margin"],
+                    margin = self._turbo_info['margin'],
                     class_token=self._turbo_info["class_token"],
+                    sigma=0.005 + 0 * i/self._turbo_info['num_merge_step'],
                     r=r
                 )
                 if self._turbo_info["trace_source"]:
@@ -308,20 +327,7 @@ class TurboBlock(Block):
                         merge, x, self._turbo_info["source"]
                     )
                 x, self._turbo_info["size"] = merge_wavg(merge, x, self._turbo_info["size"])
-        # else:
-                # merge = turbo_matching(
-                #     x,
-                #     layer_idx,
-                #     self._turbo_info["source"],
-                #     self._turbo_info["class_token"],
-                #     self._turbo_info["distill_token"],
-                # )
-                # if self._turbo_info["trace_source"]:
-                #     self._turbo_info["source"] = merge_source(
-                #         merge, x, self._turbo_info["source"]
-                #     )
-                # x, self._turbo_info["size"] = merge_wavg(merge, x, self._turbo_info["size"])
-           
+
         
         x = x + self._drop_path2(self.mlp(self.norm2(x)))
         
@@ -358,7 +364,7 @@ class TurboAttention(Attention):
         
         x = self.proj(x)
         x = self.proj_drop(x)
-        return x , q.mean(1)
+        return x , k.mean(1)
 
 class TurboVisionTransformer(VisionTransformer):
    
@@ -388,7 +394,8 @@ def apply_patch(
     
     model.selected_layers = selected_layers
     model.window_size = (2,2)
-    model.margin = 0.88
+    model.margin = 0.9
+    model.min_margin = 0.9
     model._turbo_info = {
         "size": None,
         "source": None,

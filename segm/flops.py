@@ -99,11 +99,15 @@ def dataset_prepare(dataset_path,dataset_txt_path,stats,batch_size,input_size):
 def compute_flops_per_image(model,validation_loader,device ,batch_size, resolution):
 
     gflops = []
+    i = 0
+
     for image in tqdm(validation_loader, position=0, leave=False):
+        if i == 50:  break
         image = image.to(device)
         flops = FlopCountAnalysis(model,image)
         flops.unsupported_ops_warnings(False).uncalled_modules_warnings(False)
         gflops.append(flops.total() / 1e9)
+        i += 1
     
     return np.mean(gflops)
 
@@ -141,16 +145,24 @@ def main(model_dir,
 
     dataset_path, dataset_txt_path = get_dataset_validation_path(dataset, root_dir)
     
-    for model_path in model_path_list:
+    for  model_path in model_path_list:
+
         model, variant = load_model(model_path)
         input_size = variant['dataset_kwargs']['crop_size']
         normalization = variant["dataset_kwargs"]["normalization"]
         stats = STATS[normalization]
 
         if patch_type == "algm":
+            print('using algm')
             algm.patch.algm_segmenter_patch(model, selected_layers, trace_source=True)
             model.encoder.window_size = merging_window_size
             model.encoder.threshold = threshold     
+        elif patch_type == 'pitome':
+            print('using pitome')
+            algm.patch.pitome_segmenter_patch(model, [1,2], trace_source=True, num_merge_step=3)
+            model.encoder.margin = threshold 
+        else:
+            print('using pure')
 
         model.eval()
         model.to(device)
